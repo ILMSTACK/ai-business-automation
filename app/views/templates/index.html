@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<p>It works! Try the APIs:</p>
+<pre>POST /api/llm/chat { "prompt": "Hello", "model": "llama3" }</pre>
+<pre>POST /api/ml/predict { "features": [5.1, 3.5, 1.4, 0.2] }</pre>
+{% endblock %}

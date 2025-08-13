@@ -1,41 +1,222 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-#out { white-space: pre-wrap; border: 1px solid #ddd; padding: 8px; min-height: 160px; }
-</style>
+  <!-- Messages -->
+  <section id="messages" class="flex-1 overflow-y-auto pt-4 space-y-6">
+    <!-- system/welcome -->
+    <div class="msg">
+      <div class="bubble">
+        <div class="prose prose-invert prose-chat max-w-none">
+          <p class="m-0">Hi! Ask me anything. Try: <code>Explain Flask blueprints in 3 bullets</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<div>
-  <label>Model</label>
-  <input id="model" value="{{ config.OLLAMA_MODEL if config and config.OLLAMA_MODEL else 'qwen2.5:7b' }}" />
-</div>
-<div>
-  <label>Prompt</label>
-  <textarea id="prompt" rows="4" style="width:100%">Explain Flask blueprints in 3 bullets</textarea>
-</div>
-<button id="send">Send (stream)</button>
+  <!-- Composer -->
+  <section class="sticky bottom-0 msg" style="margin-right: 20px;">
+    <div class="mt-4 bg-white dark:bg-panel-dark border border-border-light dark:border-border-dark rounded-2xl p-3 shadow-soft">
+      <textarea id="prompt" rows="1" placeholder="Message…"
+                class="w-full resize-none bg-transparent outline-none px-3 py-2"
+                oninput="this.style.height='auto';this.style.height=(this.scrollHeight)+'px'"></textarea>
+      <div class="mt-2 flex items-center justify-between">
+        <div class="text-xs text-gray-500 dark:text-gray-400">
+          <span>Shift+Enter = newline</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="send" class="btn btn-primary" style="margin-right: 20px;">Send</button>
+        </div>
+      </div>
+    </div>
+    <div class="h-3"></div>
+  </section>
+{% endblock %}
 
-<h3>Output</h3>
-<div id="out"></div>
-
+{% block scripts %}
 <script>
-const btn = document.getElementById('send');
-const out = document.getElementById('out');
-btn.onclick = async () => {
-  out.textContent = '';
-  const model = document.getElementById('model').value || '';
-  const prompt = document.getElementById('prompt').value || '';
-  const resp = await fetch('/api/llm/chat/stream', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ prompt, model })
+  // --- chat state ---
+  const messagesEl = document.getElementById('messages');
+  const promptEl   = document.getElementById('prompt');
+  const sendBtn    = document.getElementById('send');
+  const stopBtn    = document.getElementById('stopBtn');
+  const regenBtn   = document.getElementById('regenBtn');
+  const modelEl    = document.getElementById('model');
+  const newChatBtn = document.getElementById('newChat');
+
+  let controller = null;
+  let lastUserPrompt = "";
+  let isStreaming = false;
+
+  // persist model
+  (function restoreModel(){
+    const saved = localStorage.getItem('ollama_model');
+    if (saved) modelEl.value = saved;
+    modelEl.addEventListener('change', () => {
+      localStorage.setItem('ollama_model', modelEl.value.trim());
+    });
+  })();
+
+  // new chat
+  newChatBtn?.addEventListener('click', () => {
+    messagesEl.innerHTML = `
+      <div class="msg">
+        <div class="bubble">
+          <div class="prose prose-invert prose-chat max-w-none">
+            <p class="m-0">New chat started. Ask away!</p>
+          </div>
+        </div>
+      </div>`;
+    promptEl.value = "";
+    lastUserPrompt = "";
+    promptEl.focus();
   });
-  const reader = resp.body.getReader();
-  const dec = new TextDecoder();
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    out.textContent += dec.decode(value, { stream: true });
+
+  // keyboard: Enter to send, Shift+Enter newline
+  promptEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
+  // utility: auto-scroll
+  function scrollToBottom() {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
   }
-};
+
+  // utility: add message bubble
+  function addBubble(role, html) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg';
+    wrap.innerHTML = `
+      <div class="flex gap-3">
+        <div class="flex-shrink-0 mt-1">
+          ${role === 'user'
+            ? '<div class="h-8 w-8 rounded-full bg-black text-white flex items-center justify-center dark:bg-white dark:text-black">U</div>'
+            : '<div class="h-8 w-8 rounded-full bg-gray-200 text-gray-800 flex items-center justify-center dark:bg-zinc-700 dark:text-white">AI</div>'}
+        </div>
+        <div class="flex-1">
+          <div class="bubble ${role === 'user' ? 'bubble-user' : ''}">
+            <div class="prose prose-invert prose-chat max-w-none content-area">${html || ''}</div>
+            ${role !== 'user' ? `
+              <div class="mt-3 flex gap-2">
+                <button class="copy-chip" data-copy="message">Copy</button>
+              </div>` : ``}
+          </div>
+        </div>
+      </div>
+    `;
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+    return wrap.querySelector('.content-area');
+  }
+
+  // utility: enhance code blocks (highlight + copy buttons inside code)
+  function enhanceCode(el) {
+    el.querySelectorAll('pre code').forEach((block) => {
+      hljs.highlightElement(block);
+      if (!block.parentElement.querySelector('.copy-chip')) {
+        const chip = document.createElement('button');
+        chip.className = 'copy-chip absolute right-2 top-2';
+        chip.textContent = 'Copy';
+        chip.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(block.innerText);
+            chip.textContent = 'Copied!';
+            setTimeout(()=> chip.textContent = 'Copy', 1200);
+          } catch {}
+        });
+        const pre = block.parentElement;
+        pre.classList.add('relative');
+        pre.appendChild(chip);
+      }
+    });
+  }
+
+  // copy message handlers
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-copy="message"]');
+    if (!btn) return;
+    const content = btn.closest('.bubble').querySelector('.content-area');
+    try {
+      await navigator.clipboard.writeText(content.innerText);
+      btn.textContent = 'Copied!';
+      setTimeout(()=> btn.textContent = 'Copy', 1200);
+    } catch {}
+  });
+
+  // Stop streaming
+  stopBtn.addEventListener('click', () => {
+    if (controller) controller.abort();
+  });
+
+  // Regenerate
+  regenBtn.addEventListener('click', () => {
+    if (lastUserPrompt) {
+      promptEl.value = lastUserPrompt;
+      sendBtn.click();
+    }
+  });
+
+  // send action
+  sendBtn.addEventListener('click', async () => {
+    const prompt = (promptEl.value || '').trim();
+    const model  = (modelEl.value || '').trim();
+    if (!prompt || !model || isStreaming) return;
+
+    lastUserPrompt = prompt;
+
+    // user bubble
+    addBubble('user', marked.parse(prompt));
+
+    // assistant placeholder bubble
+    const assistantEl = addBubble('assistant', `<em>Thinking…</em>`);
+
+    // prepare controls
+    isStreaming = true;
+    stopBtn.classList.remove('hidden');
+    regenBtn.classList.add('hidden');
+    promptEl.value = '';
+    promptEl.style.height = 'auto';
+
+    // stream
+    controller = new AbortController();
+    let raw = ''; // raw markdown buffer
+    try {
+      const resp = await fetch('/api/llm/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model }),
+        signal: controller.signal
+      });
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        raw += decoder.decode(value, { stream: true });
+
+        // Render markdown progressively
+        assistantEl.innerHTML = marked.parse(raw);
+        enhanceCode(assistantEl);
+        scrollToBottom();
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        // user pressed stop; keep partial output
+      } else {
+        assistantEl.innerHTML = `<span class="text-red-500">Error: ${err.message || err}</span>`;
+      }
+    } finally {
+      isStreaming = false;
+      controller = null;
+      stopBtn.classList.add('hidden');
+      regenBtn.classList.remove('hidden');
+      enhanceCode(assistantEl);
+      scrollToBottom();
+    }
+  });
 </script>
 {% endblock %}

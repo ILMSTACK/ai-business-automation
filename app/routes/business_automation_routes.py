@@ -93,7 +93,6 @@ class UserStoryDetails(Resource):
 @api.route('/testcases/<int:user_story_id>')
 class TestCaseRetrieval(Resource):
     @api.doc('get_testcases')
-    @api.marshal_list_with(testcase_model)
     def get(self, user_story_id):
         """Get generated test cases by user story ID"""
         return get_testcases_by_story_id(user_story_id)
@@ -105,7 +104,6 @@ class TestCaseRetrieval(Resource):
 @api.route('/tasks/<int:user_story_id>')
 class TaskRetrieval(Resource):
     @api.doc('get_tasks')
-    @api.marshal_list_with(task_model)
     def get(self, user_story_id):
         """Get generated tasks by user story ID"""
         return get_tasks_by_story_id(user_story_id)
@@ -117,7 +115,6 @@ class TaskRetrieval(Resource):
 @api.route('/history')
 class GenerationHistory(Resource):
     @api.doc('get_generation_history')
-    @api.marshal_list_with(history_model)
     def get(self):
         """Get history of all """
         return get_generation_history()

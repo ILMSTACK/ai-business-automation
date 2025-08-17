@@ -12,17 +12,20 @@ from .routes.business_automation_routes import api as business_automation_api
 def create_app():
     app = Flask(__name__, template_folder="views/templates")
     app.config.from_object(Config)
-    CORS(app, resources={r"/*": {"origins": ["*", "http://localhost:4200"], "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], "allow_headers": "*"}})
+    
+    # CORS configuration
+    CORS(app, resources={r"/*": {"origins": ["*", "http://localhost:4200"]}}, 
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization"])
 
     db.init_app(app)
     migrate.init_app(app, db)
-
-
 
     # Register your existing blueprints
     app.register_blueprint(home_bp)
     app.register_blueprint(llm_bp, url_prefix="/api/llm")
     app.register_blueprint(ml_bp, url_prefix="/api/ml")
+    
     # Initialize Flask-RESTX API with Swagger FIRST
     api = Api(
         app,
@@ -33,14 +36,7 @@ def create_app():
     )
     
     # Import and register business automation API namespace
-    
     api.add_namespace(business_automation_api, path='/business-automation')
 
-    @app.after_request
-    def after_request(response):
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        return response
 
     return app

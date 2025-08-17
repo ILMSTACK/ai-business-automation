@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_restx import Api
+from flask_cors import CORS
 from .config import Config
 from . import models
 from .extensions import db, migrate
@@ -11,6 +12,7 @@ from .routes.business_automation_routes import api as business_automation_api
 def create_app():
     app = Flask(__name__, template_folder="views/templates")
     app.config.from_object(Config)
+    CORS(app, origins="*")
 
     db.init_app(app)
     migrate.init_app(app, db)

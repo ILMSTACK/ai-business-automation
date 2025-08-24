@@ -1,3 +1,5 @@
+# app/models/__init__.py
+
 # Import all models
 from .user import *  # Your existing user model (keep this)
 from .dt_user_story import DtUserStory
@@ -11,6 +13,9 @@ from .lt_general_status import LtGeneralStatus
 from .lt_category_ctgry import LtCategoryCtgry
 from .lt_role import LtRole
 
+# NEW: CsvUpload
+from .dt_csv_upload import CsvUpload
+
 # Make models available for import
 __all__ = [
     'User',
@@ -21,5 +26,6 @@ __all__ = [
     'LtPriority',
     'LtGeneralStatus',
     'LtCategoryCtgry',
-    'LtRole'
+    'LtRole',
+    'CsvUpload',        # <-- add this
 ]

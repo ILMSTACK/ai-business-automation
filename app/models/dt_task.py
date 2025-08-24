@@ -15,6 +15,9 @@ class DtTask(db.Model):
     task_estimated_hours = db.Column(db.Float, default=0)
     task_labels = db.Column(db.String(500))
     task_due_date = db.Column(db.DateTime)
+    notion_page_id = db.Column(db.String(100), nullable=True)
+    notion_synced_at = db.Column(db.DateTime)
+    notion_sync_status = db.Column(db.Enum('pending', 'synced', 'failed', 'skip', name='task_notion_sync_status_enum'), default='pending')
     task_created_at = db.Column(db.DateTime, default=datetime.now(UTC))
     task_updated_at = db.Column(db.DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
@@ -40,6 +43,9 @@ class DtTask(db.Model):
             'assignee': self.assignee.to_dict() if self.assignee else None,
             'priority': self.priority.to_dict() if self.priority else None,
             'status': self.status.to_dict() if self.status else None,
+            'notion_page_id': self.notion_page_id,
+            'notion_synced_at': self.notion_synced_at.isoformat() if self.notion_synced_at else None,
+            'notion_sync_status': self.notion_sync_status,
             'task_due_date': self.task_due_date.isoformat() if self.task_due_date else None,
             'task_created_at': self.task_created_at.isoformat() if self.task_created_at else None,
             'task_updated_at': self.task_updated_at.isoformat() if self.task_updated_at else None

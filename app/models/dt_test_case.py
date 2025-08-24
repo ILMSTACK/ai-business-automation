@@ -13,6 +13,9 @@ class DtTestCase(db.Model):
     test_case_priority_id = db.Column(db.Integer, db.ForeignKey('lt_priority.priority_id'))
     test_case_type_id = db.Column(db.Integer, db.ForeignKey('lt_category_ctgry.ctgry_id'))
     test_case_status_id = db.Column(db.Integer, db.ForeignKey('lt_general_status.status_id'))
+    notion_page_id = db.Column(db.String(100), nullable=True)
+    notion_synced_at = db.Column(db.DateTime)
+    notion_sync_status = db.Column(db.Enum('pending', 'synced', 'failed', 'skip', name='notion_sync_status_enum'), default='pending')
     test_case_created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     test_case_updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
@@ -55,6 +58,9 @@ class DtTestCase(db.Model):
             'priority': self.priority.to_dict() if self.priority else None,
             'test_type': self.test_type.to_dict() if self.test_type else None,
             'status': self.status.to_dict() if self.status else None,
+            'notion_page_id': self.notion_page_id,
+            'notion_synced_at': self.notion_synced_at.isoformat() if self.notion_synced_at else None,
+            'notion_sync_status': self.notion_sync_status,
             'test_case_created_at': self.test_case_created_at.isoformat() if self.test_case_created_at else None,
             'test_case_updated_at': self.test_case_updated_at.isoformat() if self.test_case_updated_at else None
         }

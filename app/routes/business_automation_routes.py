@@ -8,6 +8,16 @@ from ..controllers.business_automation_controller import (
     get_dashboard_statistics,
     search_user_stories
 )
+from ..controllers.notion_controller import (
+    create_notion_task,
+    create_notion_testcase,
+    sync_notion_task,
+    sync_notion_testcase,
+    create_notion_all_tasks,
+    create_notion_all_testcases,
+    validate_notion_token,
+    update_notion_token
+)
 
 # Create namespace for Swagger documentation
 api = Namespace('business-automation', description='Business automation operations')
@@ -65,6 +75,33 @@ dashboard_stats_model = api.model('DashboardStatistics', {
     'total_generations': fields.Integer(description='Total number of generations'),
     'recent_user_stories': fields.Integer(description='Recent user stories (last 30 days)'),
     'success_rate': fields.Float(description='Generation success rate percentage')
+})
+
+# Notion Integration Models
+notion_response_model = api.model('NotionResponse', {
+    'message': fields.String(description='Response message'),
+    'task_id': fields.Integer(description='Task ID (for task operations)'),
+    'test_case_id': fields.Integer(description='Test case ID (for test case operations)'),
+    'notion_page_id': fields.String(description='Notion page ID'),
+    'notion_url': fields.String(description='Notion page URL')
+})
+
+bulk_notion_response_model = api.model('BulkNotionResponse', {
+    'message': fields.String(description='Response message'),
+    'user_story_id': fields.Integer(description='User story ID'),
+    'total_tasks': fields.Integer(description='Total number of tasks processed'),
+    'total_test_cases': fields.Integer(description='Total number of test cases processed'),
+    'success_count': fields.Integer(description='Number of successful operations'),
+    'error_count': fields.Integer(description='Number of failed operations'),
+    'results': fields.List(fields.Raw, description='Detailed results for each item')
+})
+
+sync_response_model = api.model('SyncResponse', {
+    'message': fields.String(description='Response message'),
+    'task_id': fields.Integer(description='Task ID (for task operations)'),
+    'test_case_id': fields.Integer(description='Test case ID (for test case operations)'),
+    'notion_page_id': fields.String(description='Notion page ID'),
+    'synced_data': fields.Raw(description='Data synced from Notion')
 })
 
 # ========================================
@@ -127,3 +164,72 @@ class SearchUserStories(Resource):
     def get(self):
         """Search user stories by title or content"""
         return search_user_stories()
+
+# ========================================
+# NOTION INTEGRATION ENDPOINTS
+# ========================================
+
+@api.route('/notion/createNotionTask/<int:user_story_id>/<int:task_id>')
+class CreateNotionTask(Resource):
+    @api.doc('create_notion_task')
+    @api.marshal_with(notion_response_model, code=201)
+    def post(self, user_story_id, task_id):
+        """Create individual task in Notion"""
+        return create_notion_task(user_story_id, task_id)
+
+@api.route('/notion/createNotionTestCase/<int:user_story_id>/<int:test_case_id>')
+class CreateNotionTestCase(Resource):
+    @api.doc('create_notion_testcase')
+    @api.marshal_with(notion_response_model, code=201)
+    def post(self, user_story_id, test_case_id):
+        """Create individual test case in Notion"""
+        return create_notion_testcase(user_story_id, test_case_id)
+
+@api.route('/notion/syncNotionTask/<int:user_story_id>/<int:task_id>')
+class SyncNotionTask(Resource):
+    @api.doc('sync_notion_task')
+    @api.marshal_with(sync_response_model, code=200)
+    def post(self, user_story_id, task_id):
+        """Sync task updates from Notion to local database"""
+        return sync_notion_task(user_story_id, task_id)
+
+@api.route('/notion/syncNotionTestCase/<int:user_story_id>/<int:test_case_id>')
+class SyncNotionTestCase(Resource):
+    @api.doc('sync_notion_testcase')
+    @api.marshal_with(sync_response_model, code=200)
+    def post(self, user_story_id, test_case_id):
+        """Sync test case updates from Notion to local database"""
+        return sync_notion_testcase(user_story_id, test_case_id)
+
+@api.route('/notion/createNotionAllTasks/<int:user_story_id>')
+class CreateNotionAllTasks(Resource):
+    @api.doc('create_notion_all_tasks')
+    @api.marshal_with(bulk_notion_response_model, code=200)
+    def post(self, user_story_id):
+        """Create all tasks for a user story in Notion"""
+        return create_notion_all_tasks(user_story_id)
+
+@api.route('/notion/createNotionAllTestCases/<int:user_story_id>')
+class CreateNotionAllTestCases(Resource):
+    @api.doc('create_notion_all_testcases')
+    @api.marshal_with(bulk_notion_response_model, code=200)
+    def post(self, user_story_id):
+        """Create all test cases for a user story in Notion"""
+        return create_notion_all_testcases(user_story_id)
+
+@api.route('/notion/validateToken/<int:user_story_id>')
+class ValidateNotionToken(Resource):
+    @api.doc('validate_notion_token')
+    def get(self, user_story_id):
+        """Validate Notion token for a user story's company"""
+        return validate_notion_token(user_story_id)
+
+@api.route('/notion/updateToken/<int:user_story_id>')
+class UpdateNotionToken(Resource):
+    @api.doc('update_notion_token')
+    @api.expect(api.model('UpdateTokenRequest', {
+        'new_token': fields.String(required=True, description='New Notion API token')
+    }))
+    def post(self, user_story_id):
+        """Update Notion token for a user story's company"""
+        return update_notion_token(user_story_id)

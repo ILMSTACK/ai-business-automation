@@ -72,11 +72,12 @@ class BusinessAutomationRepository:
     # ========================================
 
     @staticmethod
-    def create_user_story(title, content):
+    def create_user_story(title, content, com_id):
         """Create a new user story"""
         user_story = DtUserStory(
             user_story_title=title,
-            user_story_content=content
+            user_story_content=content,
+            com_id=com_id
         )
         db.session.add(user_story)
         db.session.flush()  # Get ID without committing

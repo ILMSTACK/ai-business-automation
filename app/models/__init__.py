@@ -7,6 +7,11 @@ from .dt_test_case import DtTestCase
 from .dt_task import DtTask
 from .dt_generation_log import DtGenerationLog
 
+# Import new company and multi-tenant models
+from .dt_company_com import DtCompanyCom
+from .dt_user_detail import DtUserDetail
+from .dt_notion_account import DtNotionAccount
+
 # Import lookup tables
 from .lt_priority import LtPriority
 from .lt_general_status import LtGeneralStatus
@@ -23,6 +28,9 @@ __all__ = [
     'DtTestCase',
     'DtTask',
     'DtGenerationLog',
+    'DtCompanyCom',
+    'DtUserDetail',
+    'DtNotionAccount',
     'LtPriority',
     'LtGeneralStatus',
     'LtCategoryCtgry',

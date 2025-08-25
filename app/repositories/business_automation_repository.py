@@ -1,5 +1,6 @@
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta, UTC
+import logging
 from ..models.dt_user_story import DtUserStory
 from ..models.dt_test_case import DtTestCase
 from ..models.dt_task import DtTask
@@ -10,6 +11,8 @@ from ..models.lt_category_ctgry import LtCategoryCtgry
 from ..models.lt_role import LtRole
 from ..models.user import User
 from ..extensions import db
+
+logger = logging.getLogger(__name__)
 
 
 class BusinessAutomationRepository:
@@ -69,11 +72,12 @@ class BusinessAutomationRepository:
     # ========================================
 
     @staticmethod
-    def create_user_story(title, content):
+    def create_user_story(title, content, com_id):
         """Create a new user story"""
         user_story = DtUserStory(
             user_story_title=title,
-            user_story_content=content
+            user_story_content=content,
+            com_id=com_id
         )
         db.session.add(user_story)
         db.session.flush()  # Get ID without committing
@@ -323,3 +327,270 @@ class BusinessAutomationRepository:
     def flush_session():
         """Flush the session to get IDs without committing"""
         db.session.flush()
+
+    # ========================================
+    # NOTION INTEGRATION METHODS
+    # ========================================
+
+    @staticmethod
+    def update_task_notion_id(task_id, notion_page_id):
+        """Update a task with its Notion page ID"""
+        task = DtTask.query.filter_by(task_id=task_id).first()
+        if task:
+            task.notion_page_id = notion_page_id
+            db.session.commit()
+        return task
+
+    @staticmethod
+    def update_testcase_notion_id(test_case_id, notion_page_id):
+        """Update a test case with its Notion page ID"""
+        test_case = DtTestCase.query.filter_by(test_case_id=test_case_id).first()
+        if test_case:
+            test_case.notion_page_id = notion_page_id
+            db.session.commit()
+        return test_case
+
+    @staticmethod
+    def get_task_by_id(task_id):
+        """Get task by ID with relationships"""
+        return DtTask.query.filter_by(task_id=task_id)\
+            .options(
+                db.joinedload(DtTask.assignee),
+                db.joinedload(DtTask.priority),
+                db.joinedload(DtTask.status)
+            ).first()
+
+    @staticmethod
+    def get_testcase_by_id(test_case_id):
+        """Get test case by ID with relationships"""
+        return DtTestCase.query.filter_by(test_case_id=test_case_id)\
+            .options(
+                db.joinedload(DtTestCase.priority),
+                db.joinedload(DtTestCase.test_type),
+                db.joinedload(DtTestCase.status)
+            ).first()
+
+    @staticmethod
+    def get_tasks_by_user_story_id(user_story_id):
+        """Get all tasks for a specific user story with relationships"""
+        return DtTask.query.filter_by(user_story_id=user_story_id)\
+            .options(
+                db.joinedload(DtTask.assignee),
+                db.joinedload(DtTask.priority),
+                db.joinedload(DtTask.status)
+            ).all()
+
+    @staticmethod
+    def get_testcases_by_user_story_id(user_story_id):
+        """Get all test cases for a specific user story with relationships"""
+        return DtTestCase.query.filter_by(user_story_id=user_story_id)\
+            .options(
+                db.joinedload(DtTestCase.priority),
+                db.joinedload(DtTestCase.test_type),
+                db.joinedload(DtTestCase.status)
+            ).all()
+
+    @staticmethod
+    def update_user_story_task_page_id(user_story_id, notion_page_id):
+        """Update user story with its Notion task page ID"""
+        user_story = DtUserStory.query.filter_by(user_story_id=user_story_id).first()
+        if user_story:
+            user_story.notion_task_page_id = notion_page_id
+            db.session.commit()
+        return user_story
+
+    @staticmethod
+    def update_user_story_testcase_page_id(user_story_id, notion_page_id):
+        """Update user story with its Notion testcase page ID"""
+        user_story = DtUserStory.query.filter_by(user_story_id=user_story_id).first()
+        if user_story:
+            user_story.notion_testcase_page_id = notion_page_id
+            db.session.commit()
+        return user_story
+
+    @staticmethod
+    def update_user_story_task_database_id(user_story_id, notion_database_id):
+        """Update user story with its Notion task database ID"""
+        user_story = DtUserStory.query.filter_by(user_story_id=user_story_id).first()
+        if user_story:
+            user_story.notion_task_database_id = notion_database_id
+            db.session.commit()
+        return user_story
+
+    @staticmethod
+    def update_user_story_testcase_database_id(user_story_id, notion_database_id):
+        """Update user story with its Notion testcase database ID"""
+        user_story = DtUserStory.query.filter_by(user_story_id=user_story_id).first()
+        if user_story:
+            user_story.notion_testcase_database_id = notion_database_id
+            db.session.commit()
+        return user_story
+
+    @staticmethod
+    def update_user_story_notion_ids(user_story_id, page_id=None, tasks_db_id=None, testcases_db_id=None):
+        """Update user story with all Notion IDs in a single transaction"""
+        user_story = DtUserStory.query.filter_by(user_story_id=user_story_id).first()
+        if user_story:
+            if page_id is not None:
+                user_story.notion_task_page_id = page_id
+                user_story.notion_testcase_page_id = page_id  # Same page for both
+            if tasks_db_id is not None:
+                user_story.notion_task_database_id = tasks_db_id
+            if testcases_db_id is not None:
+                user_story.notion_testcase_database_id = testcases_db_id
+            db.session.commit()
+        return user_story
+
+    @staticmethod
+    def update_task_from_notion_sync(task_id, notion_data):
+        """Update task with synced data from Notion"""
+        task = DtTask.query.filter_by(task_id=task_id).first()
+        if task:
+            # Update fields that can be synced from Notion
+            if 'title' in notion_data:
+                task.task_title = notion_data['title']
+            if 'description' in notion_data:
+                task.task_description = notion_data['description']
+            if 'estimated_hours' in notion_data:
+                task.task_estimated_hours = notion_data['estimated_hours']
+            if 'labels' in notion_data and isinstance(notion_data['labels'], list):
+                task.task_labels = ','.join(notion_data['labels'])
+            
+            # Update status if we can map it
+            if 'status' in notion_data:
+                from ..models.lt_general_status import LtGeneralStatus
+                
+                # Map Notion display names to actual database status names
+                # Available task statuses: ['To Do', 'In Progress', 'Done', 'Blocked']
+                notion_to_db_status_mapping = {
+                    "Draft": "To Do",  # Map Draft to closest equivalent
+                    "To Do": "To Do",
+                    "In Progress": "In Progress", 
+                    "Done": "Done",
+                    "Completed": "Done",  # Map Completed to Done
+                    "Blocked": "Blocked",
+                    "Active": "In Progress"  # Map Active to In Progress
+                }
+                
+                db_status_name = notion_to_db_status_mapping.get(notion_data['status'], "To Do")  # Default to "To Do"
+                logger.info(f"Looking for task status: '{db_status_name}' (mapped from Notion: '{notion_data['status']}')")
+                
+                status = LtGeneralStatus.query.filter_by(
+                    status_name=db_status_name,
+                    status_category='task'
+                ).first()
+                
+                if status:
+                    logger.info(f"Found matching task status: {status.status_name} (ID: {status.status_id})")
+                    task.task_status_id = status.status_id
+                else:
+                    logger.warning(f"No matching task status found for '{db_status_name}' in category 'task'")
+                    # If no task statuses found, debug what's actually available
+                    available_statuses = LtGeneralStatus.query.filter_by(status_category='task').all()
+                    if not available_statuses:
+                        all_statuses = LtGeneralStatus.query.all()
+                        categories = list(set([s.status_category for s in all_statuses if s.status_category]))
+                        logger.warning(f"No task statuses found. Available categories: {categories}")
+                    else:
+                        logger.warning(f"Available task statuses: {[s.status_name for s in available_statuses]}")
+            
+            # Update priority if we can map it
+            if 'priority' in notion_data:
+                from ..models.lt_priority import LtPriority
+                priority = LtPriority.query.filter_by(priority_name=notion_data['priority']).first()
+                if priority:
+                    task.task_priority_id = priority.priority_id
+            
+            # Update sync status
+            from datetime import datetime, UTC
+            task.notion_synced_at = datetime.now(UTC)
+            task.notion_sync_status = 'synced'
+            
+            db.session.commit()
+        return task
+
+    @staticmethod
+    def update_testcase_from_notion_sync(test_case_id, notion_data):
+        """Update test case with synced data from Notion"""
+        test_case = DtTestCase.query.filter_by(test_case_id=test_case_id).first()
+        if test_case:
+            # Update fields that can be synced from Notion
+            if 'title' in notion_data:
+                test_case.test_case_title = notion_data['title']
+            if 'description' in notion_data:
+                test_case.test_case_description = notion_data['description']
+            if 'steps' in notion_data:
+                test_case.test_case_steps = notion_data['steps']
+            if 'expected_result' in notion_data:
+                test_case.test_case_expected_result = notion_data['expected_result']
+            
+            # Update status if we can map it
+            if 'status' in notion_data:
+                from ..models.lt_general_status import LtGeneralStatus
+                
+                # Map Notion display names to proper database status names
+                # After running insert_proper_statuses.sql, available testcase statuses include:
+                # ['Draft', 'Active', 'Deprecated', 'PASSED', 'FAILED', 'BLOCKED', 'SKIPPED', 'NOT_EXECUTED', 'IN_PROGRESS']
+                notion_to_db_status_mapping = {
+                    "Draft": "Draft",
+                    "Active": "Active", 
+                    "Passed": "PASSED",  # Use proper PASSED status
+                    "Failed": "FAILED",  # Use proper FAILED status
+                    "Blocked": "BLOCKED",  # Use proper BLOCKED status
+                    "Skipped": "SKIPPED",
+                    "Not Executed": "NOT_EXECUTED",
+                    "In Progress": "IN_PROGRESS",
+                    "Deprecated": "Deprecated"
+                }
+                
+                db_status_name = notion_to_db_status_mapping.get(notion_data['status'], "Draft")  # Default to "Draft"
+                logger.info(f"Looking for test case status: '{db_status_name}' (mapped from Notion: '{notion_data['status']}')")
+                
+                status = LtGeneralStatus.query.filter_by(
+                    status_name=db_status_name,
+                    status_category='testcase'  # Fixed: use 'testcase' not 'test_case'
+                ).first()
+                
+                if status:
+                    logger.info(f"Found matching test case status: {status.status_name} (ID: {status.status_id})")
+                    test_case.test_case_status_id = status.status_id
+                else:
+                    logger.warning(f"No matching test case status found for '{db_status_name}' in category 'test_case'")
+                    # Debug: Check what categories and statuses actually exist
+                    all_statuses = LtGeneralStatus.query.all()
+                    categories = list(set([s.status_category for s in all_statuses if s.status_category]))
+                    logger.warning(f"All available status categories: {categories}")
+                    
+                    # Show statuses for each category
+                    for category in categories:
+                        cat_statuses = LtGeneralStatus.query.filter_by(status_category=category).all()
+                        logger.warning(f"Statuses in category '{category}': {[s.status_name for s in cat_statuses]}")
+                    
+                    # Also try without category filter
+                    statuses_without_category = LtGeneralStatus.query.filter(
+                        (LtGeneralStatus.status_category == None) | (LtGeneralStatus.status_category == '')
+                    ).all()
+                    if statuses_without_category:
+                        logger.warning(f"Statuses without category: {[s.status_name for s in statuses_without_category]}")
+            
+            # Update priority if we can map it
+            if 'priority' in notion_data:
+                from ..models.lt_priority import LtPriority
+                priority = LtPriority.query.filter_by(priority_name=notion_data['priority']).first()
+                if priority:
+                    test_case.test_case_priority_id = priority.priority_id
+            
+            # Update type if we can map it
+            if 'type' in notion_data:
+                from ..models.lt_category_ctgry import LtCategoryCtgry
+                test_type = LtCategoryCtgry.query.filter_by(ctgry_name=notion_data['type']).first()
+                if test_type:
+                    test_case.test_case_type_id = test_type.ctgry_id
+            
+            # Update sync status
+            from datetime import datetime, UTC
+            test_case.notion_synced_at = datetime.now(UTC)
+            test_case.notion_sync_status = 'synced'
+            
+            db.session.commit()
+        return test_case

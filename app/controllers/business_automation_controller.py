@@ -14,6 +14,7 @@ def create_user_story_and_generate():
 
         user_story = data['user_story']
         title = data['title']
+        com_id = 1  # Hardcoded company ID
 
         # Basic validation
         if len(user_story) < 10:
@@ -29,7 +30,7 @@ def create_user_story_and_generate():
             }, 400
 
         # Call service to create user story and generate content
-        result = BusinessAutomationService.create_user_story_and_generate(user_story, title)
+        result = BusinessAutomationService.create_user_story_and_generate(user_story, title, com_id)
 
         return {
             "success": True,

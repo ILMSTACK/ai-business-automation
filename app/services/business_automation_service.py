@@ -17,7 +17,7 @@ class BusinessAutomationService:
     """Service for business automation logic - uses Repository for all database operations"""
 
     @staticmethod
-    def create_user_story_and_generate(user_story_content, title):
+    def create_user_story_and_generate(user_story_content, title, com_id):
         """
         Main workflow:
         1. Save user story to database
@@ -28,7 +28,7 @@ class BusinessAutomationService:
         """
         try:
             # 1. Create and save user story using Repository
-            user_story = BusinessAutomationRepository.create_user_story(title, user_story_content)
+            user_story = BusinessAutomationRepository.create_user_story(title, user_story_content, com_id)
             user_story_id = user_story.user_story_id
 
             # 2. Generate testcases using Ollama AI

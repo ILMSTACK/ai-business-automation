@@ -2,6 +2,7 @@
 Prompt templates for business automation AI generation
 Keeps all prompts separate from business logic for better maintainability
 """
+from datetime import datetime, UTC
 
 def get_testcase_generation_prompt(user_story_content):
     """Primary detailed prompt for test case generation"""
@@ -68,16 +69,15 @@ Format:
 Return only JSON array."""
 
 def get_task_generation_prompt(user_story_content, available_users=None):
-    """Primary detailed prompt for task generation with user assignment"""
+    """Primary detailed prompt for task generation with user assignment and due dates (Option A)."""
+    now_utc = datetime.now(UTC).isoformat()
 
-    # Build user list for assignment
     user_context = ""
     if available_users and len(available_users) > 0:
         user_list = []
         for user in available_users:
             role_name = user.get('role', {}).get('role_name', 'Unknown') if user.get('role') else 'Unknown'
             user_list.append(f"- {user['email']} ({role_name})")
-
         user_context = f"""
 AVAILABLE TEAM MEMBERS FOR ASSIGNMENT:
 {chr(10).join(user_list)}
@@ -90,6 +90,9 @@ No team members are currently available in the system. Use "Unassigned" for all 
 """
 
     return f"""You are a senior project manager breaking down a user story into development tasks.
+
+TODAY_UTC: {now_utc}
+NEVER output a due_date earlier than TODAY_UTC.
 
 USER STORY:
 {user_story_content}
@@ -106,15 +109,25 @@ Create a comprehensive task breakdown covering the full development lifecycle. C
 - Security considerations
 - Performance optimization (if applicable)
 
+DUE DATE RULES:
+- Choose realistic near-term target dates based on priority (no dates in the past):
+  - CRITICAL: within 1–2 days
+  - HIGH: within 3–5 days
+  - MEDIUM: within 5–7 days
+  - LOW: within 7–14 days
+- Prefer ISO 8601 with timezone (e.g., "2025-09-05T17:00:00Z").
+- If you only provide a date (YYYY-MM-DD), it will be treated as end-of-day.
+
 CRITICAL: Return ONLY a valid JSON array with this exact structure:
 [
   {{
     "title": "Clear task title",
     "description": "Detailed task description with specific deliverables",
     "assignee": "user@example.com or Unassigned",
-    "priority": "LOW|MEDIUM|HIGH|CRITICAL", 
+    "priority": "LOW|MEDIUM|HIGH|CRITICAL",
     "estimated_hours": 4.5,
-    "labels": ["backend", "api", "development"]
+    "labels": ["backend", "api", "development"],
+    "due_date": "YYYY-MM-DD or ISO 8601 (e.g., 2025-09-05 or 2025-09-05T17:00:00Z)"
   }}
 ]
 

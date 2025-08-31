@@ -138,12 +138,26 @@ class BusinessAutomationRepository:
     # ========================================
 
     @staticmethod
-    def create_task(user_story_id, title, description, assignee_email, priority_code, estimated_hours, labels):
-        """Create a new task using lookup codes"""
+    def create_task(user_story_id, title, description, assignee_email, priority_code, estimated_hours, labels,
+                    due_date=None):
+        """Create a new task using lookup codes (Option A supports due_date)."""
         # Get IDs from lookup tables
         priority_id = BusinessAutomationRepository.get_priority_id_by_code(priority_code)
         status_id = BusinessAutomationRepository.get_status_id_by_code('TODO', 'task')  # Default to TODO
-        assignee_user_id = BusinessAutomationRepository.get_user_id_by_email(assignee_email) if assignee_email != 'Unassigned' else None
+        assignee_user_id = (
+            BusinessAutomationRepository.get_user_id_by_email(assignee_email)
+            if assignee_email and assignee_email != 'Unassigned' else
+            None
+        )
+
+        # defensive guards
+        if priority_id is None:
+            raise ValueError(f"Unknown priority_code: {priority_code}")
+        if status_id is None:
+            raise ValueError("Default status 'TODO' for task not found")
+
+        # clamp labels to column limit (500 chars)
+        labels_str = (labels or '')[:500]
 
         task = DtTask(
             user_story_id=user_story_id,
@@ -152,8 +166,9 @@ class BusinessAutomationRepository:
             task_assignee_user_id=assignee_user_id,
             task_priority_id=priority_id,
             task_status_id=status_id,
-            task_estimated_hours=estimated_hours,
-            task_labels=labels
+            task_estimated_hours=max(0, estimated_hours or 0),
+            task_labels=labels_str,
+            task_due_date=due_date  # <-- NEW
         )
         db.session.add(task)
         return task

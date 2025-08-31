@@ -64,7 +64,8 @@ class BusinessAutomationService:
                     assignee_email=task_data.get('assignee', 'Unassigned'),  # Will be converted to ID in repository
                     priority_code=task_data['priority'],  # Will be converted to ID in repository
                     estimated_hours=task_data.get('estimated_hours', 0),
-                    labels=','.join(task_data.get('labels', []))
+                    labels=','.join(task_data.get('labels', [])),
+                    due_date=task_data.get('_due_dt')  # <-- NEW: pass parsed UTC datetime
                 )
                 task_objects.append(task)
 
@@ -243,45 +244,68 @@ class BusinessAutomationService:
     @staticmethod
     def _parse_and_validate_tasks(json_text):
         """
-        Parse and validate task JSON response with updated validation for lookup values
+        Parse and validate task JSON response with updated validation for lookup values.
+        Option A: accept 'due_date' from AI and parse to UTC datetime (stored as _due_dt).
+        Also enforce future-only due dates with SLA fallback.
         """
         try:
-            # Clean up the response - remove any markdown formatting
             json_text = json_text.replace('```json', '').replace('```', '').strip()
-
-            # Parse JSON
             tasks = json.loads(json_text)
-
-            # Validate structure
             if not isinstance(tasks, list):
                 return None
 
-            # Get valid priority values from database
             priorities = BusinessAutomationRepository.get_all_priorities()
             valid_priorities = [p.priority_code for p in priorities]
+
+            from datetime import datetime, timedelta, UTC
+            NOW = datetime.now(UTC)
+            SLA_DAYS = {'CRITICAL': 2, 'HIGH': 5, 'MEDIUM': 7, 'LOW': 14}
 
             validated_tasks = []
             for task in tasks:
                 if not isinstance(task, dict):
                     continue
 
-                # Validate required fields
                 required_fields = ['title', 'description', 'priority', 'estimated_hours', 'labels']
                 if not all(field in task for field in required_fields):
                     continue
 
-                # Normalize priority to uppercase for consistency
-                priority_upper = task['priority'].upper()
+                priority_upper = str(task['priority']).upper()
 
-                # Validate field types and values
-                if (isinstance(task['title'], str) and task['title'].strip() and
+                if (
+                        isinstance(task['title'], str) and task['title'].strip() and
                         isinstance(task['description'], str) and task['description'].strip() and
                         priority_upper in valid_priorities and
                         isinstance(task['estimated_hours'], (int, float)) and task['estimated_hours'] >= 0 and
-                        isinstance(task['labels'], list)):
-                    # Ensure labels are strings and normalize priority
+                        isinstance(task['labels'], list)
+                ):
                     task['labels'] = [str(label) for label in task['labels']]
                     task['priority'] = priority_upper
+
+                    # --- parse due_date ---
+                    raw_due = task.get('due_date')
+                    due_dt = None
+                    if raw_due is not None:
+                        try:
+                            if isinstance(raw_due, (int, float)):
+                                due_dt = datetime.fromtimestamp(raw_due, tz=UTC)
+                            elif isinstance(raw_due, str):
+                                s = raw_due.strip()
+                                if len(s) == 10 and s[4] == '-' and s[7] == '-':
+                                    y, m, d = map(int, s.split('-'))
+                                    due_dt = datetime(y, m, d, 23, 59, 59, tzinfo=UTC)
+                                else:
+                                    dt = datetime.fromisoformat(s)
+                                    due_dt = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+                        except Exception:
+                            due_dt = None
+
+                    # --- enforce future-only with SLA fallback ---
+                    if due_dt is None or due_dt < NOW:
+                        days = SLA_DAYS.get(priority_upper, 7)
+                        due_dt = (NOW + timedelta(days=days)).replace(hour=23, minute=59, second=59, microsecond=0)
+
+                    task['_due_dt'] = due_dt
                     validated_tasks.append(task)
 
             return validated_tasks if validated_tasks else None

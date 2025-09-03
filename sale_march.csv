@@ -1,0 +1,11 @@
+invoice_id,invoice_date,customer_id,customer_name,customer_email,customer_phone,customer_address,item_id,item_name,qty,unit_price
+INV2024001,2024-03-01,CUST001,John Smith,john.smith@email.com,+1-555-0101,123 Main Street New York NY 10001,PROD001,iPhone 15 Pro,1,1099.00
+INV2024001,2024-03-01,CUST001,John Smith,john.smith@email.com,+1-555-0101,123 Main Street New York NY 10001,PROD015,Phone Case Premium,1,49.99
+INV2024002,2024-03-03,CUST002,Sarah Johnson,sarah.johnson@gmail.com,+1-555-0102,456 Oak Avenue Los Angeles CA 90210,PROD003,MacBook Air M3,1,1299.00
+INV2024003,2024-03-05,CUST003,Michael Davis,m.davis@company.com,+1-555-0103,789 Pine Road Chicago IL 60601,PROD005,AirPods Pro,2,249.00
+INV2024004,2024-03-07,CUST001,John Smith,john.smith@email.com,+1-555-0101,123 Main Street New York NY 10001,PROD008,Apple Watch Series 9,1,399.00
+INV2024005,2024-03-10,CUST004,Emily Wilson,emily.w@outlook.com,+1-555-0104,321 Elm Street Miami FL 33101,PROD002,iPad Pro 12.9,1,1099.00
+INV2024005,2024-03-10,CUST004,Emily Wilson,emily.w@outlook.com,+1-555-0104,321 Elm Street Miami FL 33101,PROD016,iPad Keyboard,1,299.00
+INV2024006,2024-03-12,CUST005,Robert Brown,rob.brown@tech.com,+1-555-0105,654 Maple Drive Austin TX 73301,PROD007,HomePod mini,3,99.00
+INV2024007,2024-03-15,CUST002,Sarah Johnson,sarah.johnson@gmail.com,+1-555-0102,456 Oak Avenue Los Angeles CA 90210,PROD010,Magic Mouse,1,79.00
+INV2024008,2024-03-18,CUST006,Lisa Anderson,lisa.anderson@email.net,+1-555-0106,987 Cedar Lane Seattle WA 98101,PROD004,MacBook Pro 16,1,2499.00

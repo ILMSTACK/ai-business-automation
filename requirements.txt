@@ -1,0 +1,15 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+Flask-RESTX==1.2.0
+Flask-CORS==4.0.0
+Flask-Mail==0.9.1
+SQLAlchemy==2.0.20
+psycopg2-binary==2.9.7
+python-dotenv==1.0.0
+pandas==2.1.1
+numpy==1.25.2
+ollama==0.1.7
+notion-client==2.0.0
+requests==2.31.0
+Werkzeug==2.3.7
